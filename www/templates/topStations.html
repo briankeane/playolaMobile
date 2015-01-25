@@ -1,0 +1,10 @@
+<ion-view view-title="Top Stations">
+  <ion-content>
+    <div class-="list">
+      <a ng-repeat="station in topStations" href="#/app/stations/{{station.id}}" class="item item-avatar">
+          <img src="{{station.user.profile_image_url}}">
+          <h2>@{{station.user.twitter}}</h2>
+      </a>
+    </div>
+  </ion-content>
+</ion-view>
