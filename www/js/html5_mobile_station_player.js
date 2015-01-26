@@ -1,82 +1,50 @@
-angular.module('starter.controllers')
+angular.module('starter')
 
-.service('StationPlayer', function (StationsSvc, $rootScope) {
+.service('StationPlayer', function (StationsSvc, $rootScope, $interval, $timeout) {
 
-  var initialize = function(attrs) {
+  var self = this;
+  
+  this.initialize = function(attrs) {
     // store necessary stuff
-    this.musicStarted = false;
-    this.stationId = attrs.listenStationId;
-    this.audioQueue = attrs.audioQueue;
-    this.muted = false;
-    this.volumeLevel = 1.0;
-    this.context = new AudioContext();
-    this.gainNode = this.context.createGain();
-    this.gainNode.connect(this.context.destination);
-    this.self = this;
-    startPlayer();
-  }
-
-
-  this.restart = function(attrs) {
-    if (self.hasOwnProperty(audioQueue)) {
-      // stop current songs from playing
-      self.audioQueue.forEach(function (spin) {
-        spin.audio.stop();
-      });
+    self.musicStarted = false;
+    self.stationId = attrs.listenStationId;
+    self.audioQueue = attrs.audioQueue;
+    self.muted = false;
+    self.volumeLevel = 1.0;
+    if (!self.context) {
+      if ('webkitAudioContext' in window) {
+        self.context = new webkitAudioContext;
+      } else {
+        self.context = new AudioContext();
+      }
     }
-
-    // reinitialize
-    initialize(attrs);
-  }
+    self.gainNode = this.context.createGain();
+    self.gainNode.connect(this.context.destination);
+    self.startPlayer();
+  };
 
   var getCommercialBlockForBroadcast = function(currentPosition) {
     
-    var callback = function(result) {
-      self.audioQueue.push(result);
-      loadAudio(self.audioQueue[self.audioQueue.length - 1].key);
-    };
+    // var callback = function(result) {
+    //   self.audioQueue.push(result);
+    //   loadAudio(self.audioQueue[self.audioQueue.length - 1].key);
+    // };
 
-    var spinInfo = {};
-    spinInfo.currentPosition = currentPosition;
-    spinInfo.stationId = self.stationId;  
+    // var spinInfo = {};
+    // spinInfo.currentPosition = currentPosition;
+    // spinInfo.stationId = self.stationId;  
     
-    $.ajax({
-        type: 'GET',
-        dataType: 'json',
-        url: '/stations/get_commercial_block_for_broadcast',
-        contentType: 'application/json',
-        data: spinInfo,
-        success: callback
-    });
+    // $.ajax({
+    //     type: 'GET',
+    //     dataType: 'json',
+    //     url: '/stations/get_commercial_block_for_broadcast',
+    //     contentType: 'application/json',
+    //     data: spinInfo,
+    //     success: callback
+    // });
   };
 
   var updateAudioQueue = function() {
-      
-    // create callback for ajax request
-    var callback = function(result) {
-      console.log(result);
-      var newSong = {};
-
-      // reformat response for js
-      if (result.type != 'CommercialBlock') {
-        result.artist = result.audio_block.artist;
-        result.title = result.audio_block.title;
-      }
-
-      self.audioQueue.push(result);
-      var index = self.audioQueue.length - 1;
-      loadAudio(result.key);
-
-      // if commercials follow that spin
-      if (result["commercials_follow?"]) {
-        getCommercialBlockForBroadcast(result.currentPosition);
-      }
-      
-      // make recursive calls until audioQueue is filled
-      if (self.audioQueue.length < 3) {
-        updateAudioQueue();
-      }
-    };
       
     // get the newest spin
     var spinInfo = {};
@@ -84,21 +52,39 @@ angular.module('starter.controllers')
     spinInfo.lastCurrentPosition = spinInfo.currentPosition;
     spinInfo.stationId = self.stationId;
     
-    StationsSvc.getSpinByCurrentPosition(spinInfo).success(function (result) {
-                                                      callback(result)
-                                                    });
+    StationsSvc.getSpinByCurrentPosition(spinInfo)
+    .success(function (result) {
+        var newSong = {};
+
+        // reformat response for js
+        if (result.type != 'CommercialBlock') {
+          result.artist = result.audio_block.artist;
+          result.title = result.audio_block.title;
+        }
+
+        self.audioQueue.push(result);
+        var index = self.audioQueue.length - 1;
+        loadAudio(result.key);
+
+        // // if commercials follow that spin
+        // if (result["commercials_follow?"]) {
+        //   getCommercialBlockForBroadcast(result.currentPosition);
+        // }
+        
+      // make recursive calls until audioQueue is filled
+
+      if (self.audioQueue.length < 3) {
+        updateAudioQueue();
+      }
+    });
 
   };
 
-  var advanceSpin = function() {
-    console.log('advancing spin...');
-
-    if (!self.musicStarted) {
-      return;
-    }
+  this.advanceSpin = function() {
 
     // advance audioQueue
     self.justPlayed = self.audioQueue.shift();
+    $rootScope.$broadcast('audioQueueUpdated', self.audioQueue);
 
     self.audioQueue[0].source.start(0); 
 
@@ -109,13 +95,10 @@ angular.module('starter.controllers')
 
     // set the next advance
     var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
-    setTimeout(function() { advanceSpin(); }, msTillAdvanceSpin);
+    $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
 
-    // report the listen
-    reportListen();
-
-    $rootScope.$broadcast('spinAdvanced');
-    
+    // // report the listen
+    // reportListen();
   };
 
   function reportListen() {
@@ -124,7 +107,7 @@ angular.module('starter.controllers')
     // -----------------------------------------------------------------------------
   };
 
-  function startPlayer() {
+  this.startPlayer = function () {
     loadAudio(self.audioQueue[0].key);
 
     $rootScope.$on('playerStarted', function() {    // once 1st song has been loaded
@@ -133,7 +116,7 @@ angular.module('starter.controllers')
       }
       
       var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
-      setTimeout(function() { advanceSpin(); }, msTillAdvanceSpin);
+      $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
     });
 
     // set the next advance

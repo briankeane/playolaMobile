@@ -1,4 +1,4 @@
-angular.module('starter.controllers', ['twitterLib'])
+angular.module('starter.controllers', ['twitterLib', 'ngCordova'])
 
 .controller('AppCtrl', function($scope, $ionicModal, $timeout, TwitterLib) {
   // Form data for the login modal
@@ -52,14 +52,22 @@ angular.module('starter.controllers', ['twitterLib'])
   });
 })
 
-.controller('StationCtrl', function ($scope, $stateParams, StationsSvc, StationPlayer) {
-  $scope.listenStationId = parseInt($stateParams.stationId);
+.controller('StationCtrl', function ($scope, $stateParams, StationsSvc, StationPlayer, $rootScope) {
+  $scope.$on('audioQueueUpdated', function (event, audioQueue) {
+    $scope.audioQueue = audioQueue;
+    if (!$scope.$$phase) {
+      $scope.$apply();
+    }
+  });
+
+
+  $rootScope.listenStationId = parseInt($stateParams.stationId);
   StationsSvc.fetchAudioQueue({ stationId: $stateParams.stationId })
   .success(function (data) {
     $scope.audioQueue = data;
-    alert('fetchAudioQueue Success');
-    StationPlayer.restart({ listenStationId: $scope.listenStationId,
-                                 audioQueue: $scope.audioQueue });
+    StationPlayer.initialize({ listenStationId: $scope.listenStationId,
+                                 audioQueue: data });
+    $rootScope.audioQueue = StationPlayer.audioQueue;
   });
 
   console.log($scope);
@@ -88,35 +96,8 @@ angular.module('starter.controllers', ['twitterLib'])
     return $http.get('http://playola.fm/api/v1/stations/get_spin_by_current_position',
                 { params: attrs });
   };
-  this.downloadSong = function(spin, callback) {
-    // check to see if it's already there
-    alert('download Song started');
-    
-    window.resolveLocalFileSystemURL(cordova.file.dataDirectory + spin.filename,
-      callback(spin),   // if it's already there, continue with callback
-      goGetFile(spin, callback)   // otherwise download the file
-    );
-
-    function goGetFile(spin, callback) {
-      var fileTransfer = new FileTransfer();
-      var downloadPath = cordova.file.dataDirectory + spin.filename;
-
-      fileTransfer.download(
-        spin.key,
-        downloadPath,
-        function(entry) {
-          callback(entry);
-        },
-        function(error) {
-          alert('download error:' + error.code + '\n' + spin.key);
-          alert('filename: "' + spin.filename + '"');
-          console.dir(error);
-          alert(error);
-        },
-        true,
-        {}
-      );
-    }
+  this.updateAudioQueue = function(audioQueue) {
+    $scope.audioQueue = audioQueue;
   }
 })
 

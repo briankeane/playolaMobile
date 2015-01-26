@@ -14,7 +14,7 @@ angular.module('starter.controllers')
     startPlayer();
   }
 
-  this.restart = function (attrs) {
+  this.stop = function () {
     if (self.hasOwnProperty('audioQueue')) {
       self.audioQueue.forEach(function (spin) {
         if (spin.hasOwnProperty('media')) {
@@ -27,6 +27,7 @@ angular.module('starter.controllers')
 
   function startPlayer() {
     var song = StationsSvc.downloadSong(self.audioQueue[0], function(entry) {
+      alert('download complete callback started');
       self.audioQueue[0].media = new Media((cordova.file.dataDirectory + self.audioQueue[0].filename).replace('file://',''));
       
       if (!self.musicStarted) {
@@ -38,9 +39,6 @@ angular.module('starter.controllers')
           $rootScope.$broadcast('playerStarted');
         } else {   // advance time passed during loading
           alert('not in time');
-          self.justPlayed = self.audioQueue.shift();
-          loadAudio(self.audioQueue[0].key);
-          $rootScope.$broadcast('spinAdvanced');
         }
       }
     });
