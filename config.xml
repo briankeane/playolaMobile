@@ -16,4 +16,7 @@
   <feature name="StatusBar">
     <param name="ios-package" value="CDVStatusBar" onload="true"/>
   </feature>
+  <feature name="Media">
+    <param name="ios-package" value="CDVSound" />
+  </feature>
 </widget>
