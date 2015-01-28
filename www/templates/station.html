@@ -1,8 +1,27 @@
-<ion-view view-title="Station">
+<ion-view view-title="@{{listenStation.user.twitter}}">
   <ion-content>
-    <h1>Station</h1>
-    <h2>Now Playing:</h2>
-    <p>{{audioQueue[0].title}}</p>
-    <p>{{audioQueue[0].artist}}</p>
+
+  <div class="list card">
+
+    <div class="item item-avatar">
+      <h2>{{audioQueue[0].title}}</h2>
+      <p>{{audioQueue[0].artist}}</p>
+    </div>
+
+    <div class="item item-image">
+      <img src="{{audioQueue[0].albumArtworkUrl}}">
+    </div>
+
+    <div class="item item-icon-left assertive" href="#">
+      <i class="icon ion-music-note"></i>
+      <a href="{{audioQueue[0].itunesTrackViewUrl}}">
+        <button class="button button-block button-positive">
+          Buy
+        </button>
+      </a>
+    </div>
+
+  </div>
+
   </ion-content>
 </ion-view>

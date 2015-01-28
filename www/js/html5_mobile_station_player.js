@@ -2,24 +2,36 @@ angular.module('starter')
 
 .service('StationPlayer', function (StationsSvc, $rootScope, $interval, $timeout) {
 
+  // initialize variables
   var self = this;
-  
+  self.muted = false;
+  self.volumeLevel = 1.0;
+  self.musicStarted = false;
+  self.audioQueue = [];
+  this.timeouts = [];
+
+  // set up audio context and nodes
+  if (!self.context) {
+    if ('webkitAudioContext' in window) {
+      self.context = new webkitAudioContext;
+    } else {
+      self.context = new AudioContext();
+    }
+  }
+  self.gainNode = this.context.createGain();
+  self.gainNode.connect(this.context.destination);
+
   this.initialize = function(attrs) {
-    // store necessary stuff
-    self.musicStarted = false;
+    // load station-specific variables
+    self.clearPlayer();
+
     self.stationId = attrs.listenStationId;
     self.audioQueue = attrs.audioQueue;
-    self.muted = false;
-    self.volumeLevel = 1.0;
-    if (!self.context) {
-      if ('webkitAudioContext' in window) {
-        self.context = new webkitAudioContext;
-      } else {
-        self.context = new AudioContext();
-      }
-    }
-    self.gainNode = this.context.createGain();
-    self.gainNode.connect(this.context.destination);
+    self.musicStarted = false;
+    
+    $rootScope.audioQueue = self.audioQueue;
+    $rootScope.$broadcast('audioQueueUpdated');
+    
     self.startPlayer();
   };
 
@@ -30,10 +42,7 @@ angular.module('starter')
     //   loadAudio(self.audioQueue[self.audioQueue.length - 1].key);
     // };
 
-    // var spinInfo = {};
-    // spinInfo.currentPosition = currentPosition;
-    // spinInfo.stationId = self.stationId;  
-    
+
     // $.ajax({
     //     type: 'GET',
     //     dataType: 'json',
@@ -66,16 +75,27 @@ angular.module('starter')
         var index = self.audioQueue.length - 1;
         loadAudio(result.key);
 
-        // // if commercials follow that spin
-        // if (result["commercials_follow?"]) {
-        //   getCommercialBlockForBroadcast(result.currentPosition);
-        // }
+        // if commercials follow that spin
+        if (result["commercials_follow?"]) {
+          var spinInfo = {};
+          spinInfo.currentPosition = result.currentPosition;
+          spinInfo.stationId = self.stationId;  
+    
+          StationsSvc.getCommercialBlockForBroadcast(result.currentPosition)
+          .success(function (result) {
+            self.audioQueue.push(result);
+            $rootScope.audioQueue = self.audioQueue;
+            $rootScope.$broadcast('audioQueueUpdated');
+          });
+        }
         
       // make recursive calls until audioQueue is filled
 
       if (self.audioQueue.length < 3) {
         updateAudioQueue();
       }
+
+      $rootScope.$broadcast('audioQueueUpdated');
     });
 
   };
@@ -84,7 +104,8 @@ angular.module('starter')
 
     // advance audioQueue
     self.justPlayed = self.audioQueue.shift();
-    $rootScope.$broadcast('audioQueueUpdated', self.audioQueue);
+    $rootScope.audioQueue = self.audioQueue;
+    $rootScope.$broadcast('audioQueueUpdated');
 
     self.audioQueue[0].source.start(0); 
 
@@ -111,7 +132,7 @@ angular.module('starter')
     loadAudio(self.audioQueue[0].key);
 
     $rootScope.$on('playerStarted', function() {    // once 1st song has been loaded
-      for (var i=0; i<self.audioQueue.length; i++) {
+      for (var i=1; i<self.audioQueue.length; i++) {
         loadAudio(self.audioQueue[i].key);
       }
       
@@ -125,6 +146,28 @@ angular.module('starter')
 
   this.nowPlaying = function() {
     return self.audioQueue[0];
+  };
+
+  this.clearPlayer = function() {
+    // stop currently playing spins
+    self.audioQueue.forEach(function (spin) {
+      if (spin.hasOwnProperty('source')) {
+        
+
+        try {         // because html5 cannot test source to see if it's started
+          spin.source.start();
+        } catch (err) {
+        } finally {
+          spin.source.stop();
+        }
+      }
+    });
+
+    // cancel timeouts
+    self.timeouts.forEach(function (timeout) {
+      $timeout.cancel(timeout);
+    });
+    self.timeouts = [];
   };
 
   this.mute = function() {
@@ -165,7 +208,7 @@ angular.module('starter')
               // if it's still within the 1st spin's airtime
               if ((new Date() < self.audioQueue[1].airtime_in_ms)) {
                 self.musicStarted = true;
-                source.start(0,(Date.now() - self.audioQueue[0].airtime_in_ms)/1000);
+                self.audioQueue[0].source.start(0,(Date.now() - self.audioQueue[0].airtime_in_ms)/1000);
                 $rootScope.$broadcast('playerStarted');
               } else {   // advance time passed during loading
                 

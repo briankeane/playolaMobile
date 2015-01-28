@@ -1,7 +1,7 @@
 <ion-view view-title="Top Stations">
   <ion-content>
     <div class-="list">
-      <a ng-repeat="station in topStations" href="#/app/stations/{{station.id}}" class="item item-avatar">
+      <a ng-repeat="station in topStations" href="#/app/stations/{{station.id}}" class="item item-avatar" ng-click="changeListenStation(station)">
           <img src="{{station.user.profile_image_url}}">
           <h2>@{{station.user.twitter}}</h2>
       </a>

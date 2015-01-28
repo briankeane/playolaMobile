@@ -43,18 +43,20 @@ angular.module('starter.controllers', ['twitterLib', 'ngCordova'])
   };
 })
 
-.controller('TopStationsCtrl', function ($scope, StationsSvc) {
+.controller('TopStationsCtrl', function ($scope, StationsSvc, $rootScope) {
   $scope.topStations = [];
   StationsSvc.fetchTopStations().success(function (stations) {
     for (var i=0; i<10; i++) {
       $scope.topStations.push(stations[i]);
     }
   });
+  $scope.changeListenStation = function(station) {
+    $rootScope.listenStation = station;
+  };
 })
 
 .controller('StationCtrl', function ($scope, $stateParams, StationsSvc, StationPlayer, $rootScope) {
-  $scope.$on('audioQueueUpdated', function (event, audioQueue) {
-    $scope.audioQueue = audioQueue;
+  $scope.$on('audioQueueUpdated', function (event) {
     if (!$scope.$$phase) {
       $scope.$apply();
     }
@@ -62,20 +64,18 @@ angular.module('starter.controllers', ['twitterLib', 'ngCordova'])
 
 
   $rootScope.listenStationId = parseInt($stateParams.stationId);
+  StationsSvc.fetchStation({ stationId: $rootScope.listenStationId })
+  .success(function (data) {
+    $scope.listenStation = data;
+    if (!$scope.$$phase) {
+      $scope.$apply();
+    }
+  });
   StationsSvc.fetchAudioQueue({ stationId: $stateParams.stationId })
   .success(function (data) {
-    $scope.audioQueue = data;
     StationPlayer.initialize({ listenStationId: $scope.listenStationId,
                                  audioQueue: data });
-    $rootScope.audioQueue = StationPlayer.audioQueue;
   });
-
-  console.log($scope);
-  // $scope.topStations.forEach(function (station) {
-  //   if (station.id === $stateParams.stationId) {
-  //     $scope.listenStation = station;
-  //   }
-  // })
 })
 
 .service('StationsSvc', function ($http) {
@@ -96,8 +96,12 @@ angular.module('starter.controllers', ['twitterLib', 'ngCordova'])
     return $http.get('http://playola.fm/api/v1/stations/get_spin_by_current_position',
                 { params: attrs });
   };
+  this.getCommercialBlockForBroadcast = function(attrs) {
+    return $http.get('http://playola.fm/api/v1/stations/getCommercialBlockForBroadcast',
+                { params: attrs });
+  };
   this.updateAudioQueue = function(audioQueue) {
     $scope.audioQueue = audioQueue;
-  }
+  };
 })
 
