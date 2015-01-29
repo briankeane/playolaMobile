@@ -10,7 +10,7 @@ angular.module('starter')
   self.audioQueue = [];
   this.timeouts = [];
 
-  // set up audio context and nodes
+  // set up audio context and audio nodes
   if (!self.context) {
     if ('webkitAudioContext' in window) {
       self.context = new webkitAudioContext;
@@ -22,7 +22,13 @@ angular.module('starter')
   self.gainNode.connect(this.context.destination);
 
 
-  // this loads the station
+  // *************************************************
+  // *         initialize(attrs)                     *
+  // *************************************************
+  // * takes an attrs object with listenStationId,   *
+  // *   & audioQueue.  Clears out the old info and  *
+  // *   loads the new info
+  // *************************************************  
   this.initialize = function(attrs) {
     // load station-specific variables
     self.clearPlayer();
