@@ -21,6 +21,8 @@ angular.module('starter')
   self.gainNode = this.context.createGain();
   self.gainNode.connect(this.context.destination);
 
+
+  // this loads the station
   this.initialize = function(attrs) {
     // load station-specific variables
     self.clearPlayer();
@@ -28,7 +30,7 @@ angular.module('starter')
     self.stationId = attrs.listenStationId;
     self.audioQueue = attrs.audioQueue;
     self.musicStarted = false;
-    
+
     $rootScope.audioQueue = self.audioQueue;
     $rootScope.$broadcast('audioQueueUpdated');
     
@@ -107,7 +109,8 @@ angular.module('starter')
     $rootScope.audioQueue = self.audioQueue;
     $rootScope.$broadcast('audioQueueUpdated');
 
-    self.audioQueue[0].source.start(0); 
+    self.audioQueue[0].source.start(0);
+    self.audioQueue[0].source.started = true;
 
     // grab the new songs if necessary
     if (self.audioQueue.length<3) {
@@ -116,7 +119,8 @@ angular.module('starter')
 
     // set the next advance
     var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
-    $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
+    var newTimeout = $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
+    self.timeouts.push(newTimeout);
 
     // // report the listen
     // reportListen();
@@ -135,9 +139,6 @@ angular.module('starter')
       for (var i=1; i<self.audioQueue.length; i++) {
         loadAudio(self.audioQueue[i].key);
       }
-      
-      var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
-      $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
     });
 
     // set the next advance
@@ -151,17 +152,12 @@ angular.module('starter')
   this.clearPlayer = function() {
     // stop currently playing spins
     self.audioQueue.forEach(function (spin) {
-      if (spin.hasOwnProperty('source')) {
-        
-
-        try {         // because html5 cannot test source to see if it's started
-          spin.source.start();
-        } catch (err) {
-        } finally {
-          spin.source.stop();
-        }
+      if (spin.hasOwnProperty('source') && (spin.source.started)) {
+        spin.source.stop(0);
       }
     });
+
+    self.audioQueue = [];
 
     // cancel timeouts
     self.timeouts.forEach(function (timeout) {
@@ -209,6 +205,12 @@ angular.module('starter')
               if ((new Date() < self.audioQueue[1].airtime_in_ms)) {
                 self.musicStarted = true;
                 self.audioQueue[0].source.start(0,(Date.now() - self.audioQueue[0].airtime_in_ms)/1000);
+                self.audioQueue[0].source.started = true;
+
+                // set advance
+                var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
+                var newTimeout = $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
+                self.timeouts.push(newTimeout);
                 $rootScope.$broadcast('playerStarted');
               } else {   // advance time passed during loading
                 
