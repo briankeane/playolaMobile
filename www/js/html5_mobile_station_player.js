@@ -37,22 +37,10 @@ angular.module('starter')
     self.startPlayer();
   };
 
-  var getCommercialBlockForBroadcast = function(currentPosition) {
-    
-    // var callback = function(result) {
-    //   self.audioQueue.push(result);
-    //   loadAudio(self.audioQueue[self.audioQueue.length - 1].key);
-    // };
-
-
-    // $.ajax({
-    //     type: 'GET',
-    //     dataType: 'json',
-    //     url: '/stations/get_commercial_block_for_broadcast',
-    //     contentType: 'application/json',
-    //     data: spinInfo,
-    //     success: callback
-    // });
+  var getCommercialBlockForBroadcast = function(currentPosition) { 
+    // TO DO -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------
   };
 
   var updateAudioQueue = function() {
@@ -92,7 +80,6 @@ angular.module('starter')
         }
         
       // make recursive calls until audioQueue is filled
-
       if (self.audioQueue.length < 3) {
         updateAudioQueue();
       }
@@ -103,16 +90,16 @@ angular.module('starter')
   };
 
   this.advanceSpin = function() {
-
     // advance audioQueue
     self.justPlayed = self.audioQueue.shift();
     $rootScope.audioQueue = self.audioQueue;
     $rootScope.$broadcast('audioQueueUpdated');
 
+    // start the next spin
     self.audioQueue[0].source.start(0);
     self.audioQueue[0].source.started = true;
 
-    // grab the new songs if necessary
+    // grab new songs if necessary
     if (self.audioQueue.length<3) {
       updateAudioQueue();
     }
@@ -123,7 +110,7 @@ angular.module('starter')
     self.timeouts.push(newTimeout);
 
     // // report the listen
-    // reportListen();
+    reportListen();
   };
 
   function reportListen() {
@@ -133,15 +120,15 @@ angular.module('starter')
   };
 
   this.startPlayer = function () {
+    // load the first spin alone
     loadAudio(self.audioQueue[0].key);
 
+    // load the rest after the 1st spin is finished
     $rootScope.$on('playerStarted', function() {    // once 1st song has been loaded
       for (var i=1; i<self.audioQueue.length; i++) {
         loadAudio(self.audioQueue[i].key);
       }
     });
-
-    // set the next advance
 
   }; // end this.startPlayer
 
@@ -150,16 +137,19 @@ angular.module('starter')
   };
 
   this.clearPlayer = function() {
-    // stop currently playing spins
+    // stop currently playing or downloading spins
     self.audioQueue.forEach(function (spin) {
       if (spin.hasOwnProperty('source') && (spin.source.started)) {
         spin.source.stop(0);
+      }
+      if (spin.hasOwnProperty('req')) {
+        spin.req.abort();
       }
     });
 
     self.audioQueue = [];
 
-    // cancel timeouts
+    // cancel future advance advanceSpin triggers
     self.timeouts.forEach(function (timeout) {
       $timeout.cancel(timeout);
     });
@@ -192,37 +182,56 @@ angular.module('starter')
         var source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(self.gainNode);
-        for (var i=0; i<self.audioQueue.length; i++) {
-          var foundAMatch = false;
-          if (self.audioQueue[i].key === url) {
-            foundAMatch = true;
-            self.audioQueue[i].source = source;
+
+        var index = getAudioQueueIndexByKey(url);
+        if (index != -1) {
+          self.audioQueue[index].source = source;
+        }
+        
+        // if it's the first station spin, start it in the proper place
+        if (!self.musicStarted) {
+
+          // if it's still within the 1st spin's airtime
+          if ((new Date() < self.audioQueue[1].airtime_in_ms)) {
+            self.musicStarted = true;
+            self.audioQueue[0].source.start(0,(Date.now() - self.audioQueue[0].airtime_in_ms)/1000);
+            self.audioQueue[0].source.started = true;
+
+            // set advance
+            var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
+            var newTimeout = $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
+            self.timeouts.push(newTimeout);
+            $rootScope.$broadcast('playerStarted');
+          } else {   // advance time passed during loading
             
-            // if it's the first station spin, start it in the proper place
-            if (!self.musicStarted) {
-
-              // if it's still within the 1st spin's airtime
-              if ((new Date() < self.audioQueue[1].airtime_in_ms)) {
-                self.musicStarted = true;
-                self.audioQueue[0].source.start(0,(Date.now() - self.audioQueue[0].airtime_in_ms)/1000);
-                self.audioQueue[0].source.started = true;
-
-                // set advance
-                var msTillAdvanceSpin = (self.audioQueue[1].airtime_in_ms - Date.now());
-                var newTimeout = $timeout(function() { self.advanceSpin(); }, msTillAdvanceSpin);
-                self.timeouts.push(newTimeout);
-                $rootScope.$broadcast('playerStarted');
-              } else {   // advance time passed during loading
-                
-                self.justPlayed = self.audioQueue.shift();
-                loadAudio(self.audioQueue[0].key);
-                $rootScope.$broadcast('spinAdvanced');
-              }
-            }
+            self.justPlayed = self.audioQueue.shift();
+            loadAudio(self.audioQueue[0].key);
+            $rootScope.$broadcast('spinAdvanced');
           }
-        }  //endfor
+        }
       });
     };
+
+    // store the req in audioQueue for later cancellation if necessary
+    var index = getAudioQueueIndexByKey(url);
+    self.audioQueue[index].req = request;
+
     request.send();
+  }
+
+
+  // **********************************************
+  // *   getAudioQueueIndexByKey(key)             *
+  // **********************************************
+  // * takes a key and returns the matching index *
+  // *  -- returns -1 if not found                *
+  // **********************************************       
+  function getAudioQueueIndexByKey(key) {
+    for (var i=0; i<self.audioQueue.length; i++) {
+      if (self.audioQueue[i].key === key) {
+        return i;
+      }
+    }
+    return -1;
   }
 })
