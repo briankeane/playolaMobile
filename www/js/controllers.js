@@ -46,7 +46,7 @@ angular.module('starter.controllers', ['twitterLib', 'ngCordova'])
 .controller('TopStationsCtrl', function ($scope, StationsSvc, $rootScope) {
   $scope.topStations = [];
   StationsSvc.fetchTopStations().success(function (stations) {
-    for (var i=0; i<10; i++) {
+    for (var i=0; i<topStations.length; i++) {
       $scope.topStations.push(stations[i]);
     }
   });
